@@ -5,7 +5,7 @@ local files_list = {
     "update.lua",
     "lino.lua",
     "template.lua",
-    "startup.lua"
+    "aero.lua"
 }
 
 git_url = "https://github.com/Vladexus7/CCLuaProject.git"
