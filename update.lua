@@ -1,6 +1,5 @@
 -- Updates and fresh installs of CCLuaProject
 -- Constants
-dir_name = "libraries"
 
 local files_list = {
     "update.lua",
@@ -25,9 +24,9 @@ end
 --- Check the current version of the CCLuaProject and compare it to the latest version on GitHub
 --@return boolean true if the current version is up to date, false otherwise
 local function check_version()
-    if fs.exists(dir_name .. "/version.txt") then
+    if fs.exists("version.txt") then
         local new_version = get_version(git_version_url)
-        local old_version = fs.open(dir_name .. "/version.txt", "r").readLine()
+        local old_version = fs.open("version.txt", "r").readLine()
         if new_version == old_version then
             return true
         else
@@ -35,7 +34,9 @@ local function check_version()
         end
     else
         local version = get_version(git_version_url)
-        local version_file = fs.open(dir_name .. "/version.txt", "w").write(version)
+        local version_file = fs.open("version.txt", "w")
+        version_file.write(version)
+        version_file.close()
         return false
     end
 end
@@ -51,10 +52,13 @@ local function update()
             local url = git_raw_url .. file
             local response = http.get(url)
             if response then
-                fs.delete(dir_name .. "/" .. file)
+                if fs.exists(file) then
+                    fs.delete(file)
+                end
                 local content = response.readAll()
-                local file_handle = fs.open(dir_name .. "/" .. file, "w")
+                local file_handle = fs.open(file, "w")
                 file_handle.write(content)
+                file_handle.close()
                 print("Updated " .. file)
             else
                 print("Failed to download " .. file)
@@ -63,7 +67,9 @@ local function update()
             end
         end
         local new_version = get_version(git_version_url)
-        local version_file = fs.open(dir_name .. "/version.txt", "w").write(new_version)
+        local version_file = fs.open("version.txt", "w")
+        version_file.write(new_version)
+        version_file.close()
         print("Update complete. Current version: " .. new_version)
         return true
     end
