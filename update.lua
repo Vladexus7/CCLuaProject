@@ -71,3 +71,9 @@ local function update()
     return false
 end
 
+return {
+    get_version = get_version,
+    check_version = check_version,
+    update = update
+}
+
