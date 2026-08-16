@@ -148,14 +148,23 @@ local function check_xyz(last_value,value)
 end
 
 local function get_xyz()
+    ::retry_xyz::
     x,y,z = gps.locate()
 
     if not check_xyz(last_x,x) or not check_xyz(last_y,y) or not check_xyz(last_z,z) then
-        return last_x,last_y,last_z
+        goto retry_xyz
     end
 
     last_x,last_y,last_z = x,y,z
     return x,y,z
+end
+
+local function get_velocity()
+    local x,y,z = get_xyz()
+    local vx = x - last_x
+    local vy = y - last_y
+    local vz = z - last_z
+    return math.sqrt(vx^2 + vy^2 + vz^2)
 end
 
 -- Monitor functions
