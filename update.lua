@@ -52,9 +52,15 @@ local function update()
             local url = git_raw_url .. file
             local response = http.get(url)
             if response then
+<<<<<<< HEAD
                 fs.delete(dir_name .. "/" .. file)
                 local content = response.readAll()
                 local file_handle = fs.open(dir_name .. "/" .. file, "w")
+=======
+                fs.delete(file)
+                local content = response.readAll()
+                local file_handle = fs.open(file, "w")
+>>>>>>> a01f9b3bdcc3d8efffedb53c50adee1b1789679a
                 file_handle.write(content)
                 fs.close(file_handle)
                 print("Updated " .. file)

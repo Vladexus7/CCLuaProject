@@ -1,6 +1,8 @@
 -- Template *describe the purpose of this file*
 -- Rename to startup.lua to run on computer startup
 -- Dependencies 
+local update = require("update")
+local lino = require("lino")
 
 -- Sides
 
@@ -12,7 +14,8 @@ local function initialize()
     -- Initializes computer
     term.clear()
     term.setCursorPos(1,1) 
-    print("Initializing...")
+    print("Checking updates...")
+    update.update()
     return true
 end
 -- main
