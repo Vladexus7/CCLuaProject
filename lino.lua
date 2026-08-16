@@ -105,6 +105,75 @@ local function print_status()
 end
 -- Monitor functions
 
+-- Modem functions
+
+local modem_type = "modem"
+
+--- Checks if a modem is open on the specified side.
+-- If the modem is not open, it attempts to open it.
+--@param name The name of the peripheral (modem) to check.
+--@return boolean True if the modem is open, false otherwise.
+local function open_modem(name)
+    if isOpen(name) then
+        return true
+    else
+        rednet.open(name)
+        return isOpen(name)
+    end
+end
+
+--- Finds any available modem peripheral and opens it for communication.
+--@return string The name of the opened modem peripheral, or nil if no modem was found
+local function find_modem()
+    local peripherals = peripheral.getNames()
+    for _, name in ipairs(peripherals) do
+        if peripheral.getType(name) == modem_type then
+            if open_modem(name) then
+                return name
+            else
+                print("Failed to open modem on side " .. name)
+            end
+        end
+    end
+    return nil
+end
+
+--- Sends a message through the opened modem.
+--@param id The ID of the recipient.
+--@param message The message to send.
+--@return boolean True if the message was sent successfully, false otherwise.
+local function send_message(id, message)
+    local modem_name = find_modem()
+    if modem_name ~= nil then
+        local modem = peripheral.wrap(modem_name)
+        if rednet.send(id, message) then
+            return true
+        else
+            print("Failed to send message to ID " .. id)
+            return false
+        end
+    else
+        print("No modem found!")
+        return false
+    end
+end
+
+local function receive_message(channel)
+    local modem_name = find_modem()
+    if modem_name ~= nil then
+        local modem = peripheral.wrap(modem_name)
+        while true do
+            local event, side, received_channel, reply_channel, message, distance = os.pullEvent("modem_message")
+            if received_channel == channel then
+                return message
+            end
+        end
+    else
+        print("No modem found!")
+        return nil
+    end
+end
+
 -- Turtle functions
 -- Constants
 local last_block = nil
