@@ -1,5 +1,11 @@
 # CCLuaProject
-A personal collection of various code snippets and tools for use with CC and its add-ons.
+A personal collection of code snippets and tools for use with CC and its add-ons.
+
+# Installation
+```lua
+pastebin get zwiAa0TV install.lua
+install
+```
 
 # template.lua
 Main template for starting a new project.
@@ -8,7 +14,7 @@ Main template for starting a new project.
 The main library with a variety of useful functions.
 
 # aero.lua
-Library with functions for creating aeronautics-related tools.
+Library with functions for create aeronautics related tools.
 
 # update.lua
-Automatic installation and updating of the libraries.
+Automatic installation and update of the project files.
