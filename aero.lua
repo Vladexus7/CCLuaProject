@@ -49,8 +49,8 @@ end
 local function set_redstone_outputs(outputs)
     expect(1, outputs, "table")
     for key, value in pairs(outputs) do
-        expect(2, key, "string")
-        expect(2, value, "table")
+        expect(2, key, "table", "string")
+        expect(2, value, "string")
         if #value ~= 2 then
             error("Invalid output format for aero.set_redstone_outputs. Expected a table with two elements: {peripheral, side}.")
         end
