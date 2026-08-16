@@ -103,6 +103,44 @@ end
 local function print_status()
     print_line(status)
 end
+
+-- Math functions
+
+function sign(number)
+    return number > 0 and 1 or (number == 0 and 0 or -1)
+end
+
+-- GPS functions
+
+local last_x,last_y,last_z = gps.locate() 
+local max_velocity = 100 -- Used to filter invalid GPS readings
+
+local function check_distance(last_value,value)
+    --check validity of the value and if it is within the maximum allowed velocity
+    if math.abs(last_value - value) > max_velocity then
+        return false
+    end
+    return true
+end
+
+local function check_xyz(last_value,value)
+    if value == nil or check_distance(last_value,value) == false then
+        return false
+    end
+    return true
+end
+
+local function get_xyz()
+    x,y,z = gps.locate()
+
+    if not check_xyz(last_x,x) or not check_xyz(last_y,y) or not check_xyz(last_z,z) then
+        return last_x,last_y,last_z
+    end
+
+    last_x,last_y,last_z = x,y,z
+    return x,y,z
+end
+
 -- Monitor functions
 
 -- Modem functions
