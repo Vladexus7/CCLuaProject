@@ -4,7 +4,6 @@
 local files_list = {
     "update.lua",
     "lino.lua",
-    "template.lua",
     "aero.lua"
 }
 
@@ -19,6 +18,16 @@ git_raw_url = "https://raw.githubusercontent.com/Vladexus7/CCLuaProject/main/"
 --@return string The latest short commit number of the CCLuaProject
 local function get_version(url)
     return http.get(url).read(15):sub(-7)
+end
+
+--- Install the startup.lua file if it does not exist
+local function install_startup()
+    if not fs.exists("startup.lua") then
+        local startup_content = http.get("https://raw.githubusercontent.com/Vladexus7/CCLuaProject/main/startup.lua").readAll()
+        local startup_file = fs.open("startup.lua", "w")
+        startup_file.write(startup_content)
+        startup_file.close()
+    end
 end
 
 --- Check the current version of the CCLuaProject and compare it to the latest version on GitHub
@@ -37,6 +46,7 @@ local function check_version()
         local version_file = fs.open("version.txt", "w")
         version_file.write(version)
         version_file.close()
+        install_startup()
         return false
     end
 end
@@ -82,4 +92,3 @@ return {
     check_version = check_version,
     update = update
 }
-

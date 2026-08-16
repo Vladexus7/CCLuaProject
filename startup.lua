@@ -1,5 +1,4 @@
 -- Template *describe the purpose of this file*
--- Rename to startup.lua to run on computer startup
 -- Dependencies 
 local update = require("update")
 local lino = require("lino")
