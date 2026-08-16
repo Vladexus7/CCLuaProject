@@ -124,3 +124,15 @@ local function aim_altitude(altitude)
         print("Unable to retrieve current altitude.")
     end
 end
+
+return {
+    set_vehicule_types = set_vehicule_types,
+    set_kp = set_kp,
+    set_redstone_outputs = set_redstone_outputs,
+    get_gimbal = get_gimbal,
+    get_pitch = get_pitch,
+    get_yaw = get_yaw,
+    get_altitude = get_altitude,
+    move_up = move_up,
+    aim_altitude = aim_altitude
+}
