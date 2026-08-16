@@ -18,7 +18,6 @@ local function install()
     update = http.get(update_url).readAll()
     local update_file = fs.open(dir_name .. "/update.lua", "w")
     update_file.write(update)
-    fs.close(update_file)
     print("Fresh install of CCLuaProject...")
     shell.run(dir_name .. "/update.lua", "update")
 end

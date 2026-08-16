@@ -36,7 +36,6 @@ local function check_version()
     else
         local version = get_version(git_version_url)
         local version_file = fs.open(dir_name .. "/version.txt", "w").write(version)
-        fs.close(version_file)
         return false
     end
 end
@@ -56,7 +55,6 @@ local function update()
                 local content = response.readAll()
                 local file_handle = fs.open(dir_name .. "/" .. file, "w")
                 file_handle.write(content)
-                fs.close(file_handle)
                 print("Updated " .. file)
             else
                 print("Failed to download " .. file)
@@ -66,7 +64,6 @@ local function update()
         end
         local new_version = get_version(git_version_url)
         local version_file = fs.open(dir_name .. "/version.txt", "w").write(new_version)
-        fs.close(version_file)
         print("Update complete. Current version: " .. new_version)
         return true
     end
