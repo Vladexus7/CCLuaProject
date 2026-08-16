@@ -66,13 +66,16 @@ local function update()
                     fs.delete(file)
                 end
                 local content = response.readAll()
-                local file_handle = fs.open(file, "w")
+                local file_handle = fs.open(file, "w+")
                 file_handle.write(content)
                 file_handle.close()
                 print("Updated " .. file)
             else
                 print("Failed to download " .. file)
                 print("update canceled. Please check your internet connection and try again.")
+                if fs.exists("version.txt") then
+                    fs.delete("version.txt")
+                end
                 goto end_update
             end
         end
