@@ -54,6 +54,7 @@ end
 --- Update the CCLuaProject by downloading the latest version from GitHub
 --@return boolean true if the update was successful, false otherwise
 local function update()
+    print("Checking updates...")
     if check_version() then
         print("CCLuaProject is up to date.")
     else

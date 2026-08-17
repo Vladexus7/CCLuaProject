@@ -123,14 +123,23 @@ end
 
 -- Math functions
 
-function sign(number)
+local function sign(number)
     return number > 0 and 1 or (number == 0 and 0 or -1)
 end
 
 -- GPS functions
 
-local last_x,last_y,last_z = gps.locate() 
+local x,y,z = gps.locate() 
+local last_x,last_y,last_z = x,y,z
+local last_sx,last_sy,last_sz = x,y,z
+local vx, vy ,vz = 0, 0, 0
 local max_velocity = 100 -- Used to filter invalid GPS readings
+local last_time_speed = os.epoch("utc") -- Used to calculate speed based on GPS readings
+
+local function set_max_velocity(value)
+    expect(1, value, "number")
+    max_velocity = value
+end
 
 local function check_distance(last_value,value)
     --check validity of the value and if it is within the maximum allowed velocity
@@ -148,22 +157,65 @@ local function check_xyz(last_value,value)
 end
 
 local function get_xyz()
+    local iterations = 0
     ::retry_xyz::
     x,y,z = gps.locate()
 
     if not check_xyz(last_x,x) or not check_xyz(last_y,y) or not check_xyz(last_z,z) then
-        goto retry_xyz
+        iterations = iterations + 1
+        if iterations < 5 then
+            goto retry_xyz
+        else
+            print("GPS readings are invalid or out of range. Please check the GPS setup.")
+            x,y,z = gps.locate()
+            last_x,last_y,last_z = x,y,z
+            return x,y,z
+        end
     end
-
     last_x,last_y,last_z = x,y,z
     return x,y,z
 end
 
-local function get_velocity()
+local function set_speeds(new_vx, new_vy, new_vz)
+    vx, vy ,vz = new_vx, new_vy, new_vz
+end
+
+local function calc_speeds()
     local x,y,z = get_xyz()
-    local vx = x - last_x
-    local vy = y - last_y
-    local vz = z - last_z
+    local time = os.epoch("utc")
+    local time_delta = time - last_time_speed
+    if time_delta == 0 then
+        last_sx,last_sy,lasts_z = x,y,z
+        last_time_speed = time
+        os.sleep(0.05)
+        time = os.epoch("utc")
+        x,y,z = get_xyz()
+    end
+    last_time_speed = time
+    local time_delta = time_delta / 1000 -- convert milliseconds to seconds
+    local vx = (x - last_sx) / time_delta
+    local vy = (y - last_sy) / time_delta
+    local vz = (z - last_sz) / time_delta
+    if time_delta > 5 then
+        print("Warning: speed readings are too slow. Speed calculations may be inaccurate.")
+    end
+    last_sx,last_sy,last_sz = x,y,z
+    set_speeds(vx, vy, vz)
+    return vx, vy, vz
+end
+
+local function get_speeds()
+    local time = os.epoch("utc")
+    local time_delta = time - last_time_speed
+    if time_delta < 0.04 then
+        return vx, vy, vz
+    else
+        return calc_speeds()
+    end  
+end
+
+local function get_speed()
+    local vx, vy, vz = get_speeds()
     return math.sqrt(vx^2 + vy^2 + vz^2)
 end
 
@@ -175,37 +227,6 @@ function sign(number)
     return number > 0 and 1 or (number == 0 and 0 or -1)
 end
 
--- GPS functions
-
-local last_x,last_y,last_z = gps.locate() 
-local max_velocity = 100 -- Used to filter invalid GPS readings
-
-local function check_distance(last_value,value)
-    --check validity of the value and if it is within the maximum allowed velocity
-    if math.abs(last_value - value) > max_velocity then
-        return false
-    end
-    return true
-end
-
-local function check_xyz(last_value,value)
-    if value == nil or check_distance(last_value,value) == false then
-        return false
-    end
-    return true
-end
-
-local function get_xyz()
-    x,y,z = gps.locate()
-
-    if not check_xyz(last_x,x) or not check_xyz(last_y,y) or not check_xyz(last_z,z) then
-        return last_x,last_y,last_z
-    end
-
-    last_x,last_y,last_z = x,y,z
-    return x,y,z
-end
-
 -- Modem functions
 
 local modem_type = "modem"
@@ -215,11 +236,11 @@ local modem_type = "modem"
 --@param name The name of the peripheral (modem) to check.
 --@return boolean True if the modem is open, false otherwise.
 local function open_modem(name)
-    if isOpen(name) then
+    if rednet.isOpen(name) then
         return true
     else
         rednet.open(name)
-        return isOpen(name)
+        return rednet.isOpen(name)
     end
 end
 
@@ -620,6 +641,16 @@ local function empty_inventory(side)
     return true
 end
 
+-- Keyboard functions
+
+--- Reads a key press event and returns the key code. 
+-- Has to be run in parallel with other functions to work properly.
+--@return number key The key code of the pressed key.
+local function read_key()
+    local event, key = os.pullEvent("key")
+    return keys.getName(key)
+end
+
 -- Advanced peripheral functions
 
 --- Plays a DFPWM audio file through a connected speaker peripheral.
@@ -658,12 +689,23 @@ return {
     date = date,
     day_name = day_name,
     month_name = month_name,
+    sign = sign,
+    set_max_velocity = set_max_velocity,
+    check_distance = check_distance,
+    check_xyz = check_xyz,
+    get_xyz = get_xyz,
+    get_speeds = get_speeds,
+    get_speed = get_speed,
     redstone_clock = redstone_clock,
     clear_term = clear_term,
     print_line = print_line,
     print_date = print_date,
     print_status = print_status,
     info_loop = info_loop,
+    open_modem = open_modem,
+    find_modem = find_modem,
+    send_message = send_message,
+    receive_message = receive_message,
     check_fuel = check_fuel,
     turn_to = turn_to,
     turn_back = turn_back,
@@ -674,5 +716,6 @@ return {
     dig_from = dig_from,
     mine_from = mine_from,
     empty_inventory = empty_inventory,
+    read_key = read_key,
     play = play
 }
