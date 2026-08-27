@@ -353,6 +353,7 @@ def pop_dfpwm(stream_name, channel, max_bytes):
 
 
 def create_adaptive_palette(img):
+    assert Image is not None
     quantized = img.quantize(
         colors=16,
         method=Image.Quantize.MEDIANCUT,
@@ -382,6 +383,7 @@ def create_adaptive_palette(img):
 
 
 def create_palette_image(palette):
+    assert Image is not None
     palette_img = Image.new(
         "P",
         (16, 1)
@@ -511,11 +513,11 @@ def render_video_rows(
         row = []
 
         for x in range(w):
-            value = pixels[x, y]
+            value = pixels[x, y] # type: ignore
 
             row.append(
                 CC_HEX_CHARS[
-                    value & 0x0F
+                    value & 0x0F # type: ignore
                 ]
             )
 
@@ -1058,10 +1060,10 @@ class BridgeHTTPRequestHandler(
                     "stream": VIDEO_STREAM,
                     "frame": frame_id,
                     "updated_at": updated_at,
-                    "w": rendered["w"],
-                    "h": rendered["h"],
-                    "rows": rendered["rows"],
-                    "palette": rendered[
+                    "w": rendered["w"], # type: ignore
+                    "h": rendered["h"], # type: ignore
+                    "rows": rendered["rows"], # type: ignore
+                    "palette": rendered[ # type: ignore
                         "palette"
                     ],
                 }

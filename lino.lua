@@ -7,9 +7,13 @@ local expect, field = expect.expect, expect.field
 local cursor_y = 1
 status = "Nil"
 self_computer_id = os.getComputerID()
+local lino = {}
+lino.__index = lino
 
 -- Time Functions
 -- Constants
+local HOST = "http://192.168.1.32:8765"
+
 local days = {"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"}
 local month = {"January","February","March","April","May","June","July","August","September","October","November","December"}
 local monthLength = {31,28,31,30,31,30,31,31,30,31,30,31}
@@ -18,7 +22,7 @@ local monthLength = {31,28,31,30,31,30,31,31,30,31,30,31}
 --@return number hour The current hour (0-23).
 --@return number minute The current minute (0-59).
 --@return number second The current second (0-59).
-local function time()
+function lino:time()
     local date = os.date("*t", epoch)
     return date.hour, date.min, date.sec
 end
@@ -27,21 +31,21 @@ end
 --@return number day The current day of the month (1-31).
 --@return number month The current month (1-12).
 --@return number year The current year (e.g., 2024).
-local function date()
+function lino:date()
     local date = os.date("*t", epoch)
     return date.day, date.month, date.year
 end
 
 --- Returns the name of the current day of the week based on the local UTC offset.
 --@return string The name of the current day of the week.
-local function day_name()
+function lino:day_name()
     local date = os.date("*t", epoch)
     return days[date.wday]
 end
 
 --- Returns the name of the current month based on the local UTC offset.
 --@return string The name of the current month.
-local function month_name()
+function lino:month_name()
     local date = os.date("*t", epoch)
     return month[date.month]
 end
@@ -51,7 +55,7 @@ end
 --- Repeats a 1 tick redstone signal infinitely.
 --@param side The side to which to send the redstone signal ("up", "bottom", "left", "right", "front", or "back").
 --@param duration The duration (in seconds) for which to send the redstone signal.
-local function redstone_clock(side, period)
+function lino:redstone_clock(side, period)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (default to front)
     expect(2, period, "number", "nil") -- expects a period (number) or nil (default 1 second)
     if side == nil then
@@ -71,7 +75,7 @@ end
 -- Term functions
 
 --- Clears the terminal and resets the cursor position to the top-left corner.
-local function clear_term()
+function lino:clear_term()
     term.clear()
     cursor_y = 1
     term.setCursorPos(1,cursor_y)
@@ -79,7 +83,7 @@ end
 
 --- Prints a line of text to the terminal and moves the cursor to the next line.
 --@param text The text to print to the terminal.
-local function print_line(text)
+function lino:print_line(text)
     expect(1, text, "string")
     term.setCursorPos(1,cursor_y)
     term.clearLine()
@@ -88,32 +92,32 @@ local function print_line(text)
 end
 
 --- Prints the date and time in the format "HH:MM:SS Day DD Month YYYY" to the terminal.
-local function print_date()
+function lino:print_date()
     term.setBackgroundColor(colors.black)
     term.setTextColor(colors.blue)
     local h, m, s = time()
     local d, mo, y = date()
     local day = day_name()
     local month = month_name()
-    print_line(string.format("%02d:%02d:%02d %s %02d %s %04d", h, m, s, day, d, month, y))
+    lino:print_line(string.format("%02d:%02d:%02d %s %02d %s %04d", h, m, s, day, d, month, y))
     term.setBackgroundColor(colors.black)
     term.setTextColor(colors.white)
 end
 
 --- Prints the current status of the computer/turtle
-local function print_status()
-    print_line(status)
+function lino:print_status()
+    lino:print_line(status)
 end
 
 --- Loop for displaying date and status
-local function info_loop()
+function lino:info_loop()
     while true do
         local last_cursor_x, last_cursor_y = term.getCursorPos()
         local last_info_cursor_y = cursor_y
         cursor_y = 1
         term.setCursorPos(1,1)
-        print_date()
-        print_status()
+        lino:print_date()
+        lino:print_status()
         term.clearLine()
         cursor_y = last_info_cursor_y
         term.setCursorPos(last_cursor_x, last_cursor_y)
@@ -123,7 +127,7 @@ end
 
 -- Math functions
 
-local function sign(number)
+function lino:sign(number)
     return number > 0 and 1 or (number == 0 and 0 or -1)
 end
 
@@ -136,12 +140,12 @@ local vx, vy ,vz = 0, 0, 0
 local max_velocity = 100 -- Used to filter invalid GPS readings
 local last_time_speed = os.epoch("utc") -- Used to calculate speed based on GPS readings
 
-local function set_max_velocity(value)
+function lino:set_max_velocity(value)
     expect(1, value, "number")
     max_velocity = value
 end
 
-local function check_distance(last_value,value)
+function lino:check_distance(last_value,value)
     --check validity of the value and if it is within the maximum allowed velocity
     if math.abs(last_value - value) > max_velocity then
         return false
@@ -149,19 +153,19 @@ local function check_distance(last_value,value)
     return true
 end
 
-local function check_xyz(last_value,value)
-    if value == nil or check_distance(last_value,value) == false then
+function lino:check_xyz(last_value,value)
+    if value == nil or lino:check_distance(last_value,value) == false then
         return false
     end
     return true
 end
 
-local function get_xyz()
+function lino:get_xyz()
     local iterations = 0
     ::retry_xyz::
     x,y,z = gps.locate()
 
-    if not check_xyz(last_x,x) or not check_xyz(last_y,y) or not check_xyz(last_z,z) then
+    if not lino:check_xyz(last_x,x) or not lino:check_xyz(last_y,y) or not lino:check_xyz(last_z,z) then
         iterations = iterations + 1
         if iterations < 5 then
             goto retry_xyz
@@ -176,20 +180,20 @@ local function get_xyz()
     return x,y,z
 end
 
-local function set_speeds(new_vx, new_vy, new_vz)
+function lino:set_speeds(new_vx, new_vy, new_vz)
     vx, vy ,vz = new_vx, new_vy, new_vz
 end
 
-local function calc_speeds()
-    local x,y,z = get_xyz()
+function lino:calc_speeds()
+    local x,y,z = lino:get_xyz()
     local time = os.epoch("utc")
     local time_delta = time - last_time_speed
     if time_delta == 0 then
-        last_sx,last_sy,lasts_z = x,y,z
+        last_sx,last_sy,last_sz = x,y,z
         last_time_speed = time
         os.sleep(0.05)
         time = os.epoch("utc")
-        x,y,z = get_xyz()
+        x,y,z = lino:get_xyz()
     end
     last_time_speed = time
     local time_delta = time_delta / 1000 -- convert milliseconds to seconds
@@ -200,32 +204,26 @@ local function calc_speeds()
         print("Warning: speed readings are too slow. Speed calculations may be inaccurate.")
     end
     last_sx,last_sy,last_sz = x,y,z
-    set_speeds(vx, vy, vz)
+    lino:set_speeds(vx, vy, vz)
     return vx, vy, vz
 end
 
-local function get_speeds()
+function lino:get_speeds()
     local time = os.epoch("utc")
     local time_delta = time - last_time_speed
     if time_delta < 0.04 then
         return vx, vy, vz
     else
-        return calc_speeds()
+        return lino:calc_speeds()
     end  
 end
 
-local function get_speed()
-    local vx, vy, vz = get_speeds()
+function lino:get_speed()
+    local vx, vy, vz = lino:get_speeds()
     return math.sqrt(vx^2 + vy^2 + vz^2)
 end
 
 -- Monitor functions
-
--- Math functions
-
-function sign(number)
-    return number > 0 and 1 or (number == 0 and 0 or -1)
-end
 
 -- Modem functions
 
@@ -235,7 +233,7 @@ local modem_type = "modem"
 -- If the modem is not open, it attempts to open it.
 --@param name The name of the peripheral (modem) to check.
 --@return boolean True if the modem is open, false otherwise.
-local function open_modem(name)
+function lino:open_modem(name)
     if rednet.isOpen(name) then
         return true
     else
@@ -246,11 +244,11 @@ end
 
 --- Finds any available modem peripheral and opens it for communication.
 --@return string The name of the opened modem peripheral, or nil if no modem was found
-local function find_modem()
+function lino:find_modem()
     local peripherals = peripheral.getNames()
     for _, name in ipairs(peripherals) do
         if peripheral.getType(name) == modem_type then
-            if open_modem(name) then
+            if lino:open_modem(name) then
                 return name
             else
                 print("Failed to open modem on side " .. name)
@@ -264,7 +262,7 @@ end
 --@param id The ID of the recipient.
 --@param message The message to send.
 --@return boolean True if the message was sent successfully, false otherwise.
-local function send_message(id, message)
+function lino:send_message(id, message)
     local modem_name = find_modem()
     if modem_name ~= nil then
         local modem = peripheral.wrap(modem_name)
@@ -280,8 +278,8 @@ local function send_message(id, message)
     end
 end
 
-local function receive_message(channel)
-    local modem_name = find_modem()
+function lino:receive_message(channel)
+    local modem_name = lino:find_modem()
     if modem_name ~= nil then
         local modem = peripheral.wrap(modem_name)
         while true do
@@ -304,7 +302,7 @@ local last_turn = nil
 --- Checks fuel level at slot 16 and refuels if necessary. 
 --Returns true if fuel is sufficient, false otherwise.
 --@return boolean True if fuel is sufficient, false otherwise.
-local function check_fuel()
+function lino:check_fuel()
     status = "Checking fuel level..."
     if turtle.getFuelLevel() == 0 then
         turtle.select(16)
@@ -319,7 +317,7 @@ end
 --- Turns the turtle to face a specified side ("left", "right", "back", or "front").
 --@param side The side to turn to ("left", "right", "back", or "front").
 --@return boolean True if the value is valid and the turtle turned, false otherwise.
-local function turn_to(side)
+function lino:turn_to(side)
     status = "Turning to " .. side .. "..."
     expect(1, side, "string")
     if side == "left" then
@@ -340,7 +338,7 @@ end
 
 ---Turns the turtle to face the last turned side.
 --@return boolean True if the turtle turned to the last side, false otherwise.
-local function turn_back()
+function lino:turn_back()
     status = "Turning back..."
     if last_turn == "left" then
         turtle.turnRight()
@@ -360,7 +358,7 @@ end
 --@param side The side from which to take items ("top", "bottom", "left", "right", "front", or "back").
 --@param quantity The number of items to take (default is 1).
 --@return boolean True if items were successfully taken, false otherwise.
-local function take_from(side, quantity)
+function lino:take_from(side, quantity)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     expect(2, quantity, "number", "nil") -- expects a quantity (number) or nil
     status = "Taking items from " .. side .. "..."
@@ -378,7 +376,7 @@ local function take_from(side, quantity)
             if turtle.suck(quantity) then
                 return true
             end
-            turn_back()
+            lino:turn_back()
         end
     end
     print("Failed to take items from side " .. side)
@@ -389,7 +387,7 @@ end
 --@param side The side to which to put items ("top", "bottom", "left", "right", "front", or "back").
 --@param quantity The number of items to put (default is 1).
 --@return boolean True if items were successfully put, false otherwise.
-local function put_to(side, quantity)
+function lino:put_to(side, quantity)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     expect(2, quantity, "number", "nil") -- expects a quantity (number) or nil
     status = "Putting items to " .. side .. "..."
@@ -407,7 +405,7 @@ local function put_to(side, quantity)
             if turtle.drop(quantity) then
                 return true
             end
-            turn_back()
+            lino:turn_back()
         end
     end
     print("Failed to put items to side " .. side)
@@ -417,7 +415,7 @@ end
 ---Places a block to a specified side of the turtle.
 --@param side The side to which to place the block ("top", "bottom", "left", "right", "front", or "back").
 --@return boolean True if the block was successfully placed, false otherwise. 
-local function place_to(side)
+function lino:place_to(side)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     status = "Placing block to " .. side .. "..."
 
@@ -436,7 +434,7 @@ local function place_to(side)
                 if turtle.place() then
                     return true
                 end
-                turn_back()
+                lino:turn_back()
             end
         end
     end
@@ -448,7 +446,7 @@ end
 --@param side The side from which to grab the item ("top", "bottom", "left", "right", "front", or "back").
 --@param quantity The number of items to grab (default is 1).
 --@return boolean True if the item was successfully grabbed, false otherwise.
-local function suck_from(side, quantity)
+function lino:suck_from(side, quantity)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     expect(2, quantity, "number", "nil") -- expects a quantity (number) or nil
     status = "Sucking items from " .. side .. "..."
@@ -466,7 +464,7 @@ local function suck_from(side, quantity)
             if turtle.suck(quantity) then
                 return true
             end
-            turn_back()
+            lino:turn_back()
         end
     end
     print("Failed to suck items from side " .. side)
@@ -477,7 +475,7 @@ end
 --@param side The side to which to put items ("top", "bottom", "left", "right", "front", or "back").
 --@param quantity The number of items to put (default is stack).
 --@return boolean True if items were successfully put, false otherwise.
-local function put_to(side, quantity)
+function lino:put_to(side, quantity)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     expect(2, quantity, "number", "nil") -- expects a quantity (number) or nil
     status = "Putting items to " .. side .. "..."
@@ -495,7 +493,7 @@ local function put_to(side, quantity)
             if turtle.drop(quantity) then
                 return true
             end
-            turn_back()
+            lino:turn_back()
         end
     end
     print("Failed to put items to side " .. side)
@@ -506,7 +504,7 @@ end
 --Digs only if block present.
 --@param side The side from which to dig the block ("top", "bottom", "left", "right", "front", or "back").
 --@return boolean True if the block was successfully dug, false otherwise.
-local function dig_from(side)
+function lino:dig_from(side)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     status = "Digging block from " .. side .. "..."
 
@@ -527,9 +525,9 @@ local function dig_from(side)
     else
         local has_block, data = turtle.inspect()
         if has_block then
-            if turn_to(side) then
+            if lino:turn_to(side) then
                 if turtle.dig() then
-                    turn_back()
+                    lino:turn_back()
                     return true
                 end
             end
@@ -545,7 +543,7 @@ end
 --@param side The side from which to dig the block ("top", "bottom", "left", "right", "front", or "back").
 --@param timeout The maximum time to wait for the block to be dug (in seconds).
 --@return boolean True if the block was successfully dug, false otherwise.
-local function mine_from(side, timeout)
+function lino:mine_from(side, timeout)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (default to front)
     expect(2, timeout, "number", "nil") -- expects a timeout (number) or nil (60 seconds)
 
@@ -584,12 +582,12 @@ local function mine_from(side, timeout)
         else
             local has_block, data = turtle.inspect()
             if has_block and data.name ~= last_block then
-                if turn_to(side) then
+                if lino:turn_to(side) then
                     if turtle.dig() then
                         while turtle.suck() do
                             -- Keep sucking until no more items are available
                         end
-                        turn_back()
+                        lino:turn_back()
                         return true
                     end
                 end
@@ -605,14 +603,14 @@ end
 --Doesn't drop fuel slot (16)
 --@param side The side to which to drop the items ("top", "bottom", "left", "right", "front", or "back").
 --@return boolean True if the inventory was successfully emptied, false otherwise.
-local function empty_inventory(side)
+function lino:empty_inventory(side)
     expect(1, side, "string", "nil") -- expects a side (string) or nil (front)
     status = "Emptying inventory to " .. side .. "..."
     if side == nil then
         side = "front"
     end
     if side == "front" or side == "back" or side == "left" or side == "right" then
-        turn_to(side)
+        lino:turn_to(side)
     end
     last_slot = turtle.getSelectedSlot()
     for slot = 1, 15 do
@@ -637,25 +635,65 @@ local function empty_inventory(side)
         end
     end
     turtle.select(last_slot)
-    turn_back()
+    lino:turn_back()
     return true
 end
 
 -- Keyboard functions
+pressed_keys = {}
 
 --- Reads a key press event and returns the key code. 
 -- Has to be run in parallel with other functions to work properly.
 --@return number key The key code of the pressed key.
-local function read_key()
+function lino:read_key()
     local event, key = os.pullEvent("key")
     return keys.getName(key)
+end
+
+--- Reads keys sent via keyboardReader.py and updates pressed_keys table.
+--@return table pressed_keys A table containing the currently pressed keys.
+function lino:http_read_key()
+    local ok, response = pcall(function()
+        return http.get("http://192.168.1.32:8765/keyboard")
+    end)
+
+    if not ok or not response then
+        return
+    end
+
+    local body = response.readAll()
+    response.close()
+
+    if not body or body == "" or body == "null" then
+        return 
+    end
+
+    local data = textutils.unserializeJSON(body)
+
+    if not data then
+        return
+    end
+
+    if data.event == "key_down" then
+        pressed_keys[data.value] = true
+    elseif data.event == "key_up" then
+        pressed_keys[data.value] = false
+    end
+    return pressed_keys
+end
+
+--- Returns the current state of pressed keys.
+--@return table pressed_keys A table containing the currently pressed keys.
+function lino:get_pressed_keys()
+    lino:http_read_key()
+    return pressed_keys
 end
 
 -- Advanced peripheral functions
 
 --- Plays a DFPWM audio file through a connected speaker peripheral.
 --@param musique The name of the audio file to play (without extension).
-local function play(musique)
+function lino:play(musique)
     --base name : file = "musique.dfpwm"
     local file = musique .. ".dfpwm"
     local speaker = peripheral.find("speaker")
@@ -684,38 +722,4 @@ local function play(musique)
     print("Lecture terminée !")
 end
 
-return {
-    time = time,
-    date = date,
-    day_name = day_name,
-    month_name = month_name,
-    sign = sign,
-    set_max_velocity = set_max_velocity,
-    check_distance = check_distance,
-    check_xyz = check_xyz,
-    get_xyz = get_xyz,
-    get_speeds = get_speeds,
-    get_speed = get_speed,
-    redstone_clock = redstone_clock,
-    clear_term = clear_term,
-    print_line = print_line,
-    print_date = print_date,
-    print_status = print_status,
-    info_loop = info_loop,
-    open_modem = open_modem,
-    find_modem = find_modem,
-    send_message = send_message,
-    receive_message = receive_message,
-    check_fuel = check_fuel,
-    turn_to = turn_to,
-    turn_back = turn_back,
-    take_from = take_from,
-    put_to = put_to,
-    place_to = place_to,
-    suck_from = suck_from,
-    dig_from = dig_from,
-    mine_from = mine_from,
-    empty_inventory = empty_inventory,
-    read_key = read_key,
-    play = play
-}
+return lino
