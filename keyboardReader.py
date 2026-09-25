@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HOST = "0.0.0.0"
 PORT = 8765
 path = "/keyboard"
-MAX_QUEUE = 6
+MAX_QUEUE = 2
 
 event_queue = deque(maxlen=MAX_QUEUE)
 queue_lock = threading.Lock()
