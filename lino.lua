@@ -1,4 +1,8 @@
 -- Library Initialized Not Original ©Bresch
+-- Internet acces 
+local HOST = "http://135.19.217.168"
+local TOKEN = "Vladexuss_VBANBridge"
+
 -- Dependencies
 local expect = require "cc.expect"
 local expect, field = expect.expect, expect.field
@@ -12,7 +16,6 @@ lino.__index = lino
 
 -- Time Functions
 -- Constants
-local HOST = "http://192.168.1.32:8765"
 
 local days = {"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"}
 local month = {"January","February","March","April","May","June","July","August","September","October","November","December"}
@@ -654,7 +657,9 @@ end
 --@return table pressed_keys A table containing the currently pressed keys.
 function lino:http_read_key()
     local ok, response = pcall(function()
-        return http.get("http://192.168.1.32:8765/keyboard")
+        return http.get(
+            HOST .. "/keyboard?token=" .. TOKEN
+        )
     end)
 
     if not ok or not response then

@@ -1,12 +1,16 @@
 import keyboard
 import json
+import secrets
 import threading
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 HOST = "0.0.0.0"
+LOCAL_IP = "192.168.0.102"
 PORT = 8765
-path = "/keyboard"
+AUTH_TOKEN = "Vladexuss_VBANBridge"
+PATH = "/keyboard"
 MAX_QUEUE = 2
 
 event_queue = deque(maxlen=MAX_QUEUE)
@@ -35,7 +39,15 @@ def keyboard_read_key():
 class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
-        if self.path != path:
+        parsed = urlparse(self.path)
+        token = parse_qs(parsed.query).get("token", [""])[0]
+
+        if not secrets.compare_digest(token, AUTH_TOKEN):
+            self.send_response(401)
+            self.end_headers()
+            return
+
+        if parsed.path != PATH:
             self.send_response(404)
             self.end_headers()
             return
@@ -62,6 +74,6 @@ threading.Thread(target=keyboard_read_key, daemon=True).start()
 
 server = ThreadingHTTPServer((HOST, PORT), Handler)
 
-print(f"Keyboard server listening on http://192.168.1.32:{PORT}{path}")
+print(f"Keyboard server listening on http://{LOCAL_IP}:{PORT}{PATH}?" + "token=" + AUTH_TOKEN)
 
 server.serve_forever()

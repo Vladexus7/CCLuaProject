@@ -7,12 +7,14 @@
 import argparse
 import io
 import json
+import secrets
 import socket
 import struct
 import threading
 import time
 from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import cast
 from urllib.parse import parse_qs, urlparse
 
 try:
@@ -29,6 +31,7 @@ DEFAULT_VIDEO_STREAM = "VIDEO1"
 DEFAULT_PORTS = [6980, 6981, 6982, 6990, 7000]
 
 HTTP_PORT = 8765
+HTTP_AUTH_TOKEN = "Vladexuss_VBANBridge"
 
 PCM_STREAMS = defaultdict(lambda: defaultdict(deque))
 DFPWM_STREAMS = defaultdict(lambda: defaultdict(deque))
@@ -47,9 +50,6 @@ VIDEO_FRAME = {
 }
 
 VIDEO_CACHE = {}
-VIDEO_PALETTE = None
-VIDEO_PALETTE_FRAME = -1
-VIDEO_PALETTE_INTERVAL = 15
 
 RATE_MAP = {
     0x00: 6000,
@@ -352,63 +352,73 @@ def pop_dfpwm(stream_name, channel, max_bytes):
     return bytes(out)
 
 
-def create_adaptive_palette(img):
-    assert Image is not None
-    quantized = img.quantize(
-        colors=16,
-        method=Image.Quantize.MEDIANCUT,
-        dither=Image.Dither.FLOYDSTEINBERG
+def quantize_color(value, factor=16):
+    return min(
+        255,
+        max(
+            0,
+            int(value / factor + 0.5) * factor
+        )
     )
 
-    raw_palette = quantized.getpalette()
+
+def create_reference_palette(img):
+    color_counts = defaultdict(int)
+    color_sums = defaultdict(lambda: [0, 0, 0, 0])
+    pixels = img.load()
+
+    for y in range(img.height):
+        for x in range(img.width):
+            red, green, blue = pixels[x, y]
+            bucket = (
+                quantize_color(red),
+                quantize_color(green),
+                quantize_color(blue),
+            )
+            color_counts[bucket] += 1
+            sums = color_sums[bucket]
+            sums[0] += red
+            sums[1] += green
+            sums[2] += blue
+            sums[3] += 1
+
+    top_colors = sorted(
+        color_counts,
+        key=lambda color: color_counts[color],
+        reverse=True
+    )[:16]
+
     palette = []
 
-    for i in range(16):
-        base = i * 3
+    for color in top_colors:
+        red, green, blue, count = color_sums[color]
+        palette.append(
+            (
+                int(red / count + 0.5),
+                int(green / count + 0.5),
+                int(blue / count + 0.5),
+            )
+        )
 
-        if base + 2 < len(raw_palette):
-            palette.append(
-                (
-                    raw_palette[base],
-                    raw_palette[base + 1],
-                    raw_palette[base + 2],
-                )
-            )
-        else:
-            palette.append(
-                (0, 0, 0)
-            )
+    while len(palette) < 16:
+        palette.append((0, 0, 0))
 
     return palette
 
 
 def create_palette_image(palette):
     assert Image is not None
-    palette_img = Image.new(
-        "P",
-        (16, 1)
-    )
+    palette_img = Image.new("P", (16, 1))
+    flat_palette = []
 
-    flat = []
+    for red, green, blue in palette:
+        flat_palette.extend((red, green, blue))
 
-    for r, g, b in palette:
-        flat.extend(
-            (r, g, b)
-        )
+    flat_palette.extend([0] * (768 - len(flat_palette)))
+    palette_img.putpalette(flat_palette)
 
-    flat.extend(
-        [0] * (
-            768 - len(flat)
-        )
-    )
-
-    palette_img.putpalette(flat)
-
-    for x in range(16):
-        palette_img.putpixel(
-            (x, 0),
-            x
-        )
+    for index in range(16):
+        palette_img.putpixel((index, 0), index)
 
     return palette_img
 
@@ -418,9 +428,6 @@ def render_video_rows(
     max_w,
     max_h
 ):
-    global VIDEO_PALETTE
-    global VIDEO_PALETTE_FRAME
-
     if Image is None:
         return None, "Pillow not installed"
 
@@ -469,55 +476,61 @@ def render_video_rows(
 
     w, h = img.size
 
-    with VIDEO_LOCK:
-        current_frame = VIDEO_FRAME[
-            "frame"
-        ]
-
-    if (
-        VIDEO_PALETTE is None
-        or current_frame is None
-        or VIDEO_PALETTE_FRAME < 0
-        or (
-            current_frame
-            - VIDEO_PALETTE_FRAME
-            >= VIDEO_PALETTE_INTERVAL
-        )
-    ):
-        palette = create_adaptive_palette(
-            img
-        )
-
-        with VIDEO_LOCK:
-            VIDEO_PALETTE = palette
-            VIDEO_PALETTE_FRAME = current_frame
-    else:
-        with VIDEO_LOCK:
-            palette = list(
-                VIDEO_PALETTE
-            )
-
-    palette_img = create_palette_image(
-        palette
-    )
-
+    palette = create_reference_palette(img)
     indexed = img.quantize(
-        palette=palette_img,
-        dither=Image.Dither.FLOYDSTEINBERG
+        palette=create_palette_image(palette),
+        colors=16,
+        dither=Image.Dither.NONE
     )
+    indexed_palette = indexed.getpalette() or []
+    palette_index_map = []
+
+    for palette_index in range(256):
+        base = palette_index * 3
+        if base + 2 < len(indexed_palette):
+            color = indexed_palette[base:base + 3]
+        else:
+            color = (0, 0, 0)
+
+        palette_index_map.append(
+            min(
+                range(16),
+                key=lambda index: sum(
+                    (
+                        color[channel]
+                        - palette[index][channel]
+                    ) ** 2
+                    for channel in range(3)
+                )
+            )
+        )
 
     pixels = indexed.load()
+    if pixels is None:
+        return None, "Failed to load indexed image"
+
     rows = []
 
     for y in range(h):
         row = []
 
         for x in range(w):
-            value = pixels[x, y] # type: ignore
+            pixel_index = cast(
+                int,
+                pixels[x, y]
+            )
+
+            value = max(
+                0,
+                min(
+                    15,
+                    palette_index_map[pixel_index]
+                )
+            )
 
             row.append(
                 CC_HEX_CHARS[
-                    value & 0x0F # type: ignore
+                    value
                 ]
             )
 
@@ -540,9 +553,6 @@ def push_video_payload(
     frame_id,
     payload
 ):
-    global VIDEO_PALETTE
-    global VIDEO_PALETTE_FRAME
-
     if not payload:
         return
 
@@ -564,9 +574,6 @@ def push_video_payload(
             ] = None
 
             VIDEO_CACHE.clear()
-
-            VIDEO_PALETTE = None
-            VIDEO_PALETTE_FRAME = -1
 
             return
 
@@ -688,8 +695,8 @@ def build_test_packet(
             -20000,
             30000,
             -30000,
-            40000,
-            -40000,
+            32767,
+            -32768,
             5000,
             -5000,
             15000,
@@ -729,6 +736,28 @@ class BridgeHTTPRequestHandler(
         qs = parse_qs(
             parsed.query
         )
+
+        if HTTP_AUTH_TOKEN and not secrets.compare_digest(
+            qs.get("token", [""])[0],
+            HTTP_AUTH_TOKEN
+        ):
+            body = json.dumps({
+                "ok": False,
+                "error": "Unauthorized",
+            }).encode("utf-8")
+
+            self.send_response(401)
+            self.send_header(
+                "Content-Type",
+                "application/json"
+            )
+            self.send_header(
+                "Content-Length",
+                str(len(body))
+            )
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
         if parsed.path == "/health":
             with VIDEO_LOCK:
@@ -1424,6 +1453,8 @@ def self_test():
 
 
 def main():
+    global HTTP_AUTH_TOKEN, HTTP_PORT, VIDEO_STREAM
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -1448,6 +1479,23 @@ def main():
     )
 
     parser.add_argument(
+        "--http-port",
+        type=int,
+        default=HTTP_PORT,
+        help="HTTP port for the ComputerCraft clients"
+    )
+
+    parser.add_argument(
+        "--auth-token",
+        type=str,
+        default=HTTP_AUTH_TOKEN,
+        help=(
+            "require this token on HTTP requests; "
+            "use a long random value for public hosting"
+        )
+    )
+
+    parser.add_argument(
         "--self-test",
         action="store_true",
         help="run a short local packet test and exit"
@@ -1459,9 +1507,9 @@ def main():
         self_test()
         return
 
-    global VIDEO_STREAM
-
     VIDEO_STREAM = args.video_stream
+    HTTP_AUTH_TOKEN = args.auth_token
+    HTTP_PORT = args.http_port
 
     udp_port = args.port
     video_port = args.video_port
@@ -1514,8 +1562,14 @@ def main():
     print(
         f"Bridge ready: audio UDP {udp_port}, "
         f"video UDP {video_port}, "
-        f"HTTP {HTTP_PORT}"
+        f"HTTP {HTTP_IP}:{HTTP_PORT}"
     )
+
+    if not HTTP_AUTH_TOKEN:
+        print(
+            "WARNING: HTTP authentication is disabled. "
+            "Use --auth-token before exposing this bridge publicly."
+        )
 
     while True:
         time.sleep(1)

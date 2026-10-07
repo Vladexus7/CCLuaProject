@@ -3,11 +3,12 @@
 -- Stereo audio is supported if two speakers are attached (right has to be adjacent to computer, left has to be connected through networking cables). 
 --Video is displayed on a monitor if one is attached.
 
-local HOST = "http://192.168.1.32:8765"
+local HOST = "http://135.19.217.168"
+local AUTH_TOKEN = "Vladexuss_VBANBridge"
 local AUDIO_STREAM = "Stream2"
 local VIDEO_STREAM = "VIDEO1"
 
-local PLAY_SAMPLES = 4096
+local PLAY_SAMPLES = 16384
 local FETCH_BYTES = math.floor(PLAY_SAMPLES / 8)
 
 local dfpwm = require("cc.audio.dfpwm")
@@ -21,6 +22,7 @@ local last_palette = nil
 local speaker_left = nil
 local speaker_right = nil
 local stereo = false
+local audio_loop_running = false
 
 local monitor = peripheral.find("monitor")
 
@@ -61,6 +63,8 @@ local function detect_audio_channels()
             HOST
                 .. "/audio_info?stream="
                 .. AUDIO_STREAM
+                .. "&token="
+                .. AUTH_TOKEN
         )
     end)
 
@@ -171,6 +175,8 @@ local function fetch_video_frame()
         .. video_w
         .. "&h="
         .. video_h
+        .. "&token="
+        .. AUTH_TOKEN
 
     local ok, response = pcall(function()
         return http.get(url)
@@ -268,7 +274,9 @@ local function http_get_dfpwm(channel)
                 .. "&channel="
                 .. channel
                 .. "&max="
-                .. FETCH_BYTES,
+                .. FETCH_BYTES
+                .. "&token="
+                .. AUTH_TOKEN,
             nil,
             true
         )
@@ -389,6 +397,12 @@ local function audio_loop_mono()
 end
 
 local function audio_loop()
+    if audio_loop_running then
+        return
+    end
+
+    audio_loop_running = true
+
     if stereo then
         audio_loop_stereo()
     else
